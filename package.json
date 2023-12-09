@@ -1,0 +1,29 @@
+{
+  "name": "aws-s3-js",
+  "version": "1.0.0",
+  "description": "Node.js implementation of high-level AWS S3 commands.",
+  "private": true,
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "lint": "npx eslint . --ext .js",
+    "lint:fix": "npm run lint -- --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KarlKKang/aws-s3-js.git"
+  },
+  "author": "Kai Kang",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/KarlKKang/aws-s3-js/issues"
+  },
+  "homepage": "https://github.com/KarlKKang/aws-s3-js",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.462.0"
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin-js": "^1.4.1",
+    "eslint": "^8.54.0"
+  }
+}
