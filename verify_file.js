@@ -4,7 +4,7 @@ import { S3Client } from '@aws-sdk/client-s3';
 
 function printHelp() {
     console.error('Usage:');
-    console.error('node checksum_file.js <BUCKET> <OBJECT_KEY> <LOCAL_FILE_PATH> [OPTIONS]');
+    console.error('node verify_file.js <BUCKET> <OBJECT_KEY> <LOCAL_FILE_PATH> [OPTIONS]');
     console.error();
     console.error('Options:');
     console.error('--region <REGION>');
