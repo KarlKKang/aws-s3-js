@@ -1,7 +1,7 @@
 {
   "name": "aws-s3-js",
   "version": "1.0.0",
-  "description": "Node.js implementation of high-level AWS S3 commands.",
+  "description": "A Node.js implementation of some AWS S3 operations.",
   "private": true,
   "sideEffects": false,
   "type": "module",
