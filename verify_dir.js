@@ -8,7 +8,7 @@ import { createQueue, dequeue, enqueue } from './helper/queue.js';
 
 function printHelp() {
     console.error('Usage:');
-    console.error('node verify_dir.js <BUCKET> <REMOTE_ROOT> <LOCAL_ROOT> [OPTIONS]');
+    console.error(process.argv0 + ' ' + process.argv[1] + ' <BUCKET> <REMOTE_ROOT> <LOCAL_ROOT> [OPTIONS]');
     console.error();
     console.error('Options:');
     console.error('--region <REGION>');

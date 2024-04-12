@@ -12,7 +12,7 @@ import { deleteObjects } from './helper/deleteObjects.js';
 
 function printHelp() {
     console.error('Usage:');
-    console.error('node upload.js <BUCKET> <REMOTE_PATH> <LOCAL_PATH> [OPTIONS]');
+    console.error(process.argv0 + ' ' + process.argv[1] + ' <BUCKET> <REMOTE_PATH> <LOCAL_PATH> [OPTIONS]');
     console.error();
     console.error('Options:');
     console.error('--region <REGION>');

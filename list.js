@@ -4,7 +4,7 @@ import util from 'util';
 
 function printHelp() {
     console.error('Usage:');
-    console.error('node list.js <BUCKET> [OPTIONS]');
+    console.error(process.argv0 + ' ' + process.argv[1] + ' <BUCKET> [OPTIONS]');
     console.error();
     console.error('Options:');
     console.error('--region <REGION>');
