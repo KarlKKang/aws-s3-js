@@ -144,6 +144,7 @@ if (fileAttributes.isDirectory) {
         console.log('Skipped ' + localPath + ' because it is already up to date.');
     } else {
         console.error('Failed to upload ' + localPath + ' to ' + remotePath + ': file already exists and overwrite is disabled.');
+        process.exit(1);
     }
 } else {
     console.error('Error: Path is not a file or directory: ' + localPath);
@@ -294,6 +295,9 @@ async function uploadDir() {
     console.log('Skipped ' + skippedCount + ' files (already up to date).');
     console.log('Excluded ' + localExcludeCount + ' local files from upload.');
     console.log('Excluded ' + remoteExcludeCount + ' remote files from deletion.');
+    if (failedCount > 0 || failedDeleteCount > 0) {
+        process.exit(1);
+    }
 }
 
 async function uploadFile(remotePath, localPath, mimeType) {
