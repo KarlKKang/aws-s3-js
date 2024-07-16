@@ -29,6 +29,8 @@ function printHelp() {
     console.error('    Use the given number of concurrent network requests for multipart uploads. The default is 16. If you are running out of memory, try reducing this value.');
     console.error('--delete');
     console.error('    Delete remote files that do not exist locally. This option is ignored when uploading a single file.');
+    console.error('--no-overwrite');
+    console.error('    Do not overwrite existing files.');
     console.error();
     console.error('Do not include enclosing slashes of the regular expressions. All regular expressions are case-insensitive and can match unicode characters. The regular expressions are matched against the relative path of the file, which is the path relative to <LOCAL_PATH> if it is a directory. Otherwise, the absolute path of the file is used.');
 }
@@ -51,6 +53,7 @@ let mime = [];
 let threads = 8;
 let multipartThreads = 16;
 let deleteRemote = false;
+let overwrite = true;
 for (let i = 5; i < process.argv.length; i++) {
     if (process.argv[i] === '--region') {
         region = process.argv[++i];
@@ -106,6 +109,8 @@ for (let i = 5; i < process.argv.length; i++) {
         }
     } else if (process.argv[i] === '--delete') {
         deleteRemote = true;
+    } else if (process.argv[i] === '--no-overwrite') {
+        overwrite = false;
     } else {
         console.error('Error: Unknown option: ' + process.argv[i]);
         console.error();
@@ -133,10 +138,12 @@ if (fileAttributes.isDirectory) {
     uploadDir();
 } else if (fileAttributes.isFile) {
     const uploadResult = await uploadFile(remotePath, localPath, getMime(localPath));
-    if (uploadResult) {
+    if (uploadResult === 0) {
         console.log('Successfully uploaded ' + localPath + ' to ' + remotePath);
-    } else {
+    } else if (uploadResult === 1) {
         console.log('Skipped ' + localPath + ' because it is already up to date.');
+    } else {
+        console.error('Failed to upload ' + localPath + ' to ' + remotePath + ': file already exists and overwrite is disabled.');
     }
 } else {
     console.error('Error: Path is not a file or directory: ' + localPath);
@@ -222,11 +229,14 @@ async function uploadDir() {
                 try {
                     const [remotePath, localPath, relativePath] = localPendingPath;
                     const uploadResult = await uploadFile(remotePath, localPath, getMime(relativePath));
-                    if (uploadResult) {
+                    if (uploadResult === 0) {
                         console.log('Successfully uploaded ' + localPath + ' to ' + remotePath);
                         successCount++;
-                    } else {
+                    } else if (uploadResult === 1) {
                         skippedCount++;
+                    } else {
+                        console.error('Failed to upload ' + localPath + ' to ' + remotePath + ': file already exists and overwrite is disabled.');
+                        failedCount++;
                     }
                 } catch (e) {
                     console.error('Failed to upload ' + localPath + ' to ' + remotePath);
@@ -299,7 +309,10 @@ async function uploadFile(remotePath, localPath, mimeType) {
     }
     localFile = await localFile;
     if (remoteFile && remoteFile.size === localFile.size && remoteFile.mtime.getTime() >= localFile.mtime.getTime()) {
-        return false;
+        return 1;
+    }
+    if (remoteFile && !overwrite) {
+        return 2;
     }
     if (localFile.size <= MULTIPART_SIZE_THREASHOLD) {
         await singlePartUpload(localPath, remotePath, localFile.size, mimeType);
@@ -308,7 +321,7 @@ async function uploadFile(remotePath, localPath, mimeType) {
     } else {
         throw new Error('File is too large: ' + localPath);
     }
-    return true;
+    return 0;
 }
 
 async function singlePartUpload(localPath, remotePath, size, mime) {
