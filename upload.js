@@ -29,8 +29,8 @@ function printHelp() {
     console.error('    Use the given number of concurrent network requests for multipart uploads. The default is 16. If you are running out of memory, try reducing this value.');
     console.error('--delete');
     console.error('    Delete remote files that do not exist locally. This option is ignored when uploading a single file.');
-    console.error('--no-overwrite');
-    console.error('    Do not overwrite existing files.');
+    console.error('--no-overwrite [<REGEXP>]');
+    console.error('    Do not overwrite existing files. Optional regular expression can be used to specify files that should not be overwritten. If the regular expression is not specified, all files will not be overwritten.');
     console.error();
     console.error('Do not include enclosing slashes of the regular expressions. All regular expressions are case-insensitive and can match unicode characters. The regular expressions are matched against the relative path of the file, which is the path relative to <LOCAL_PATH> if it is a directory. Otherwise, the absolute path of the file is used.');
 }
@@ -54,6 +54,7 @@ let threads = 8;
 let multipartThreads = 16;
 let deleteRemote = false;
 let overwrite = true;
+let noOverwriteRegex = /.*/;
 for (let i = 5; i < process.argv.length; i++) {
     if (process.argv[i] === '--region') {
         region = process.argv[++i];
@@ -111,6 +112,10 @@ for (let i = 5; i < process.argv.length; i++) {
         deleteRemote = true;
     } else if (process.argv[i] === '--no-overwrite') {
         overwrite = false;
+        const regex = process.argv[++i];
+        if (regex && !regex.startsWith('--')) {
+            noOverwriteRegex = new RegExp(regex, 'iu');
+        }
     } else {
         console.error('Error: Unknown option: ' + process.argv[i]);
         console.error();
@@ -137,7 +142,7 @@ const fileAttributes = await getFileAttributes(localPath);
 if (fileAttributes.isDirectory) {
     uploadDir();
 } else if (fileAttributes.isFile) {
-    const uploadResult = await uploadFile(remotePath, localPath, getMime(localPath));
+    const uploadResult = await uploadFile(remotePath, localPath, localPath);
     if (uploadResult === 0) {
         console.log('Successfully uploaded ' + localPath + ' to ' + remotePath);
     } else if (uploadResult === 1) {
@@ -229,7 +234,7 @@ async function uploadDir() {
             while (localPendingPath !== null) {
                 try {
                     const [remotePath, localPath, relativePath] = localPendingPath;
-                    const uploadResult = await uploadFile(remotePath, localPath, getMime(relativePath));
+                    const uploadResult = await uploadFile(remotePath, localPath, relativePath);
                     if (uploadResult === 0) {
                         console.log('Successfully uploaded ' + localPath + ' to ' + remotePath);
                         successCount++;
@@ -300,7 +305,7 @@ async function uploadDir() {
     }
 }
 
-async function uploadFile(remotePath, localPath, mimeType) {
+async function uploadFile(remotePath, localPath, matchPath) {
     // Do a final check before uploading.
     let localFile = getFileAttributes(localPath);
     let remoteFile = undefined;
@@ -315,9 +320,10 @@ async function uploadFile(remotePath, localPath, mimeType) {
     if (remoteFile && remoteFile.size === localFile.size && remoteFile.mtime.getTime() >= localFile.mtime.getTime()) {
         return 1;
     }
-    if (remoteFile && !overwrite) {
+    if (remoteFile && !overwrite && noOverwriteRegex.test(matchPath)) {
         return 2;
     }
+    const mimeType = getMime(matchPath);
     if (localFile.size <= MULTIPART_SIZE_THREASHOLD) {
         await singlePartUpload(localPath, remotePath, localFile.size, mimeType);
     } else if (localFile.size <= 5 * 1024 * 1024 * 1024 * 1024) {
