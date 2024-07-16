@@ -31,6 +31,8 @@ function printHelp() {
     console.error('    Delete remote files that do not exist locally. This option is ignored when uploading a single file.');
     console.error('--no-overwrite [<REGEXP>]');
     console.error('    Do not overwrite existing files. Optional regular expression can be used to specify files that should not be overwritten. If the regular expression is not specified, all files will not be overwritten.');
+    console.error('--no-overwrite-exclude <REGEXP>');
+    console.error('    Exclude files from previously matched ones from --no-overwrite.');
     console.error();
     console.error('Do not include enclosing slashes of the regular expressions. All regular expressions are case-insensitive and can match unicode characters. The regular expressions are matched against the relative path of the file, which is the path relative to <LOCAL_PATH> if it is a directory. Otherwise, the absolute path of the file is used.');
 }
@@ -55,6 +57,7 @@ let multipartThreads = 16;
 let deleteRemote = false;
 let overwrite = true;
 let noOverwriteRegex = /.*/;
+let noOverwriteExclude = undefined;
 for (let i = 5; i < process.argv.length; i++) {
     if (process.argv[i] === '--region') {
         region = process.argv[++i];
@@ -116,6 +119,15 @@ for (let i = 5; i < process.argv.length; i++) {
         if (regex && !regex.startsWith('--')) {
             noOverwriteRegex = new RegExp(regex, 'iu');
         }
+    } else if (process.argv[i] === '--no-overwrite-exclude') {
+        noOverwriteExclude = process.argv[++i];
+        if (!noOverwriteExclude) {
+            console.error('Error: Expected argument after --no-overwrite-exclude');
+            console.error();
+            printHelp();
+            process.exit(1);
+        }
+        noOverwriteExclude = new RegExp(noOverwriteExclude, 'iu');
     } else {
         console.error('Error: Unknown option: ' + process.argv[i]);
         console.error();
@@ -320,7 +332,7 @@ async function uploadFile(remotePath, localPath, matchPath) {
     if (remoteFile && remoteFile.size === localFile.size && remoteFile.mtime.getTime() >= localFile.mtime.getTime()) {
         return 1;
     }
-    if (remoteFile && !overwrite && noOverwriteRegex.test(matchPath)) {
+    if (remoteFile && !overwrite && noOverwriteRegex.test(matchPath) && (noOverwriteExclude === undefined || !noOverwriteExclude.test(matchPath))) {
         return 2;
     }
     const mimeType = getMime(matchPath);
