@@ -34,7 +34,7 @@ function printHelp() {
     console.error('--delete');
     console.error('    Delete remote files that do not exist locally. This option is ignored when uploading a single file.');
     console.error('--no-overwrite [<REGEXP>]');
-    console.error('    Do not overwrite existing files. Optional regular expression can be used to specify files that should not be overwritten. If the regular expression is not specified, all files will not be overwritten.');
+    console.error('    Do not overwrite existing files. Optional regular expression can be used to specify files that should not be overwritten. If the regular expression is not specified, all files will not be overwritten. If the file name starts with --, it must be escaped to avoid being interpreted as an option.');
     console.error('--no-overwrite-exclude <REGEXP>');
     console.error('    Exclude files from previously matched ones from --no-overwrite.');
     console.error('--dry-run');
