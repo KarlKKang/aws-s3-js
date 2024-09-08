@@ -21,8 +21,8 @@ function printHelp() {
     console.error('    Exclude files matching the given regular expression. This option is ignored when uploading a single file.');
     console.error('--include <REGEXP>');
     console.error('    Include previously excluded files matched by --exclude. This option is ignored when uploading a single file.');
-    console.error('--mime <EXT> <TYPE>');
-    console.error('    Set the MIME type for files with the given extension. Multiple --mime options can be specified. <EXT> is a regular expression and <TYPE> is a MIME type.');
+    console.error('--mime <REGEX> <TYPE>');
+    console.error('    Set the MIME type for files matching the given regular expression. Multiple --mime options can be specified.');
     console.error('--cache-control <REGEXP> <VALUE>');
     console.error('    Set the Cache-Control header for files matching the given regular expression. Multiple --cache-control options can be specified.');
     console.error('--metadata <REGEXP> <KEY> <VALUE>');
@@ -95,15 +95,15 @@ for (let i = 5; i < process.argv.length; i++) {
         }
         include = new RegExp(include, 'iu');
     } else if (process.argv[i] === '--mime') {
-        const ext = process.argv[++i];
+        const regex = process.argv[++i];
         const type = process.argv[++i];
-        if (!ext || !type) {
+        if (!regex || !type) {
             console.error('Error: Expected two arguments after --mime');
             console.error();
             printHelp();
             process.exit(1);
         }
-        mime.push([new RegExp(ext), type]);
+        mime.push([new RegExp(regex), type]);
     } else if (process.argv[i] === '--cache-control') {
         const regex = process.argv[++i];
         const value = process.argv[++i];
@@ -539,13 +539,13 @@ function localToRelativePath(localPath, localRoot) {
 }
 
 function getMime(matchPath) {
-    for (const [ext, type] of mime) {
-        if (ext.test(matchPath)) {
+    for (const [regex, type] of mime) {
+        if (regex.test(matchPath)) {
             return type;
         }
     }
-    for (const [ext, type] of MIME) {
-        if (ext.test(matchPath)) {
+    for (const [regex, type] of MIME) {
+        if (regex.test(matchPath)) {
             return type;
         }
     }
