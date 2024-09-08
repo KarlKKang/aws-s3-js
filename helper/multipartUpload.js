@@ -1,11 +1,13 @@
 import { CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } from '@aws-sdk/client-s3';
 
-export async function createMultipartUpload(client, bucket, key, mime) {
+export async function createMultipartUpload(client, bucket, key, mime, cacheControl, metadata) {
     const command = new CreateMultipartUploadCommand({
         Bucket: bucket,
         Key: key,
         ContentType: mime,
         ChecksumAlgorithm: 'SHA256',
+        CacheControl: cacheControl,
+        Metadata: metadata,
     });
     const response = await client.send(command);
     return {

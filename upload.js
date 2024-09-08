@@ -23,6 +23,10 @@ function printHelp() {
     console.error('    Include previously excluded files matched by --exclude. This option is ignored when uploading a single file.');
     console.error('--mime <EXT> <TYPE>');
     console.error('    Set the MIME type for files with the given extension. Multiple --mime options can be specified. <EXT> is a regular expression and <TYPE> is a MIME type.');
+    console.error('--cache-control <REGEXP> <VALUE>');
+    console.error('    Set the Cache-Control header for files matching the given regular expression. Multiple --cache-control options can be specified.');
+    console.error('--metadata <REGEXP> <KEY> <VALUE>');
+    console.error('    Set the metadata for files matching the given regular expression. Multiple --metadata options can be specified.');
     console.error('--threads <COUNT>');
     console.error('    Upload the given number of files concurrently. The default is 8. This value is ignored when uploading a single file. If you are running out of memory, try reducing this value.');
     console.error('--multipart-threads <COUNT>');
@@ -54,6 +58,8 @@ let region = undefined;
 let exclude = undefined;
 let include = undefined;
 let mime = [];
+let cacheControl = [];
+let metadata = [];
 let threads = 8;
 let multipartThreads = 16;
 let deleteRemote = false;
@@ -92,12 +98,33 @@ for (let i = 5; i < process.argv.length; i++) {
         const ext = process.argv[++i];
         const type = process.argv[++i];
         if (!ext || !type) {
-            console.error('Error: Expected argument after --mime');
+            console.error('Error: Expected two arguments after --mime');
             console.error();
             printHelp();
             process.exit(1);
         }
         mime.push([new RegExp(ext), type]);
+    } else if (process.argv[i] === '--cache-control') {
+        const regex = process.argv[++i];
+        const value = process.argv[++i];
+        if (!regex || !value) {
+            console.error('Error: Expected two arguments after --cache-control');
+            console.error();
+            printHelp();
+            process.exit(1);
+        }
+        cacheControl.push([new RegExp(regex, 'iu'), value]);
+    } else if (process.argv[i] === '--metadata') {
+        const regex = process.argv[++i];
+        const key = process.argv[++i];
+        const value = process.argv[++i];
+        if (!regex || !key || !value) {
+            console.error('Error: Expected three arguments after --metadata');
+            console.error();
+            printHelp();
+            process.exit(1);
+        }
+        metadata.push([new RegExp(regex, 'iu'), key, value]);
     } else if (process.argv[i] === '--threads') {
         threads = parseInt(process.argv[++i]);
         if (threads < 1 || threads > 256 || isNaN(threads)) {
@@ -341,13 +368,15 @@ async function uploadFile(remotePath, localPath, matchPath) {
         return 2;
     }
     const mimeType = getMime(matchPath);
+    const cacheControlValue = getCacheControl(matchPath);
+    const metadataValue = getMetadata(matchPath);
     if (localFile.size <= MULTIPART_SIZE_THREASHOLD) {
         if (!dryRun) {
-            await singlePartUpload(localPath, remotePath, localFile.size, mimeType);
+            await singlePartUpload(localPath, remotePath, localFile.size, mimeType, cacheControlValue, metadataValue);
         }
     } else if (localFile.size <= 5 * 1024 * 1024 * 1024 * 1024) {
         if (!dryRun) {
-            await multipartUpload(localPath, remotePath, localFile.size, mimeType);
+            await multipartUpload(localPath, remotePath, localFile.size, mimeType, cacheControlValue, metadataValue);
         }
     } else {
         throw new Error('File is too large: ' + localPath);
@@ -355,7 +384,7 @@ async function uploadFile(remotePath, localPath, matchPath) {
     return 0;
 }
 
-async function singlePartUpload(localPath, remotePath, size, mime) {
+async function singlePartUpload(localPath, remotePath, size, mime, cacheControl, metadata) {
     let buffer = Buffer.alloc(size + 1);
     const fd = await open(localPath);
     const bytesRead = await read(fd, buffer, size + 1);
@@ -367,14 +396,14 @@ async function singlePartUpload(localPath, remotePath, size, mime) {
     const sha256 = createHash('sha256').update(buffer).digest().toString('base64');
     const md5 = createHash('md5').update(buffer).digest().toString('base64');
     await requestWrapper(async () => {
-        await putObject(client, bucket, remotePath, buffer, mime, sha256, md5);
+        await putObject(client, bucket, remotePath, buffer, mime, sha256, md5, cacheControl, metadata);
     });
 }
 
-async function multipartUpload(localPath, remotePath, size, mime) {
+async function multipartUpload(localPath, remotePath, size, mime, cacheControl, metadata) {
     const partSize = Math.max(MIN_PART_SIZE, Math.ceil(size / 10000));
     const multipartUploadJob = await requestWrapper(async () => {
-        return await createMultipartUpload(client, bucket, remotePath, mime);
+        return await createMultipartUpload(client, bucket, remotePath, mime, cacheControl, metadata);
     });
     const fd = await open(localPath);
     const chunkChecksums = [];
@@ -521,4 +550,23 @@ function getMime(matchPath) {
         }
     }
     return undefined;
+}
+
+function getCacheControl(matchPath) {
+    for (const [regex, value] of cacheControl) {
+        if (regex.test(matchPath)) {
+            return value;
+        }
+    }
+    return undefined;
+}
+
+function getMetadata(matchPath) {
+    const metadata = {};
+    for (const [regex, key, value] of metadata) {
+        if (regex.test(matchPath)) {
+            metadata[key] = value;
+        }
+    }
+    return metadata;
 }
