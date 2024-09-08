@@ -20,7 +20,7 @@ function printHelp() {
     console.error('--exclude <REGEXP>');
     console.error('    Exclude files matching the given regular expression. This option is ignored when uploading a single file.');
     console.error('--include <REGEXP>');
-    console.error('    Include files matching the given regular expression. This option is ignored when uploading a single file.');
+    console.error('    Include previously excluded files matched by --exclude. This option is ignored when uploading a single file.');
     console.error('--mime <EXT> <TYPE>');
     console.error('    Set the MIME type for files with the given extension. Multiple --mime options can be specified. <EXT> is a regular expression and <TYPE> is a MIME type.');
     console.error('--threads <COUNT>');
