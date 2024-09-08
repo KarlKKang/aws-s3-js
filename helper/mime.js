@@ -1,4 +1,4 @@
-export const MIME = [
+export const MIME_LUT = [
     [
         /\.webp$/i,
         'image/webp'

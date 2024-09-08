@@ -4,7 +4,7 @@ import { createQueue, enqueue, dequeue } from './helper/queue.js';
 import path from 'path';
 import { headObject } from './helper/headObject.js';
 import { createHash } from 'crypto';
-import { MIME } from './helper/mime.js';
+import { MIME_LUT } from './helper/mime.js';
 import { putObject } from './helper/putObject.js';
 import { createMultipartUpload, uploadPart, abortMultipartUpload, completeMultipartUpload } from './helper/multipartUpload.js';
 import { listObjectsV2 } from './helper/listObjectsV2.js';
@@ -544,7 +544,7 @@ function getMime(matchPath) {
             return type;
         }
     }
-    for (const [regex, type] of MIME) {
+    for (const [regex, type] of MIME_LUT) {
         if (regex.test(matchPath)) {
             return type;
         }
