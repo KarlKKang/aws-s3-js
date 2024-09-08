@@ -57,9 +57,9 @@ if (!bucket || !remotePath || !localPath) {
 let region = undefined;
 let exclude = undefined;
 let include = undefined;
-let mime = [];
-let cacheControl = [];
-let metadata = [];
+let mimeLut = [];
+let cacheControlLut = [];
+let metadataLut = [];
 let threads = 8;
 let multipartThreads = 16;
 let deleteRemote = false;
@@ -103,7 +103,7 @@ for (let i = 5; i < process.argv.length; i++) {
             printHelp();
             process.exit(1);
         }
-        mime.push([new RegExp(regex), type]);
+        mimeLut.push([new RegExp(regex), type]);
     } else if (process.argv[i] === '--cache-control') {
         const regex = process.argv[++i];
         const value = process.argv[++i];
@@ -113,7 +113,7 @@ for (let i = 5; i < process.argv.length; i++) {
             printHelp();
             process.exit(1);
         }
-        cacheControl.push([new RegExp(regex, 'iu'), value]);
+        cacheControlLut.push([new RegExp(regex, 'iu'), value]);
     } else if (process.argv[i] === '--metadata') {
         const regex = process.argv[++i];
         const key = process.argv[++i];
@@ -124,7 +124,7 @@ for (let i = 5; i < process.argv.length; i++) {
             printHelp();
             process.exit(1);
         }
-        metadata.push([new RegExp(regex, 'iu'), key, value]);
+        metadataLut.push([new RegExp(regex, 'iu'), key, value]);
     } else if (process.argv[i] === '--threads') {
         threads = parseInt(process.argv[++i]);
         if (threads < 1 || threads > 256 || isNaN(threads)) {
@@ -367,16 +367,16 @@ async function uploadFile(remotePath, localPath, matchPath) {
     if (remoteFile && !overwrite && noOverwriteRegex.test(matchPath) && (noOverwriteExclude === undefined || !noOverwriteExclude.test(matchPath))) {
         return 2;
     }
-    const mimeType = getMime(matchPath);
+    const mimeValue = getMime(matchPath);
     const cacheControlValue = getCacheControl(matchPath);
     const metadataValue = getMetadata(matchPath);
     if (localFile.size <= MULTIPART_SIZE_THREASHOLD) {
         if (!dryRun) {
-            await singlePartUpload(localPath, remotePath, localFile.size, mimeType, cacheControlValue, metadataValue);
+            await singlePartUpload(localPath, remotePath, localFile.size, mimeValue, cacheControlValue, metadataValue);
         }
     } else if (localFile.size <= 5 * 1024 * 1024 * 1024 * 1024) {
         if (!dryRun) {
-            await multipartUpload(localPath, remotePath, localFile.size, mimeType, cacheControlValue, metadataValue);
+            await multipartUpload(localPath, remotePath, localFile.size, mimeValue, cacheControlValue, metadataValue);
         }
     } else {
         throw new Error('File is too large: ' + localPath);
@@ -384,7 +384,7 @@ async function uploadFile(remotePath, localPath, matchPath) {
     return 0;
 }
 
-async function singlePartUpload(localPath, remotePath, size, mime, cacheControl, metadata) {
+async function singlePartUpload(localPath, remotePath, size, mimeValue, cacheControlValue, metadataValue) {
     let buffer = Buffer.alloc(size + 1);
     const fd = await open(localPath);
     const bytesRead = await read(fd, buffer, size + 1);
@@ -396,14 +396,14 @@ async function singlePartUpload(localPath, remotePath, size, mime, cacheControl,
     const sha256 = createHash('sha256').update(buffer).digest().toString('base64');
     const md5 = createHash('md5').update(buffer).digest().toString('base64');
     await requestWrapper(async () => {
-        await putObject(client, bucket, remotePath, buffer, mime, sha256, md5, cacheControl, metadata);
+        await putObject(client, bucket, remotePath, buffer, mimeValue, sha256, md5, cacheControlValue, metadataValue);
     });
 }
 
-async function multipartUpload(localPath, remotePath, size, mime, cacheControl, metadata) {
+async function multipartUpload(localPath, remotePath, size, mimeValue, cacheControlValue, metadataValue) {
     const partSize = Math.max(MIN_PART_SIZE, Math.ceil(size / 10000));
     const multipartUploadJob = await requestWrapper(async () => {
-        return await createMultipartUpload(client, bucket, remotePath, mime, cacheControl, metadata);
+        return await createMultipartUpload(client, bucket, remotePath, mimeValue, cacheControlValue, metadataValue);
     });
     const fd = await open(localPath);
     const chunkChecksums = [];
@@ -539,7 +539,7 @@ function localToRelativePath(localPath, localRoot) {
 }
 
 function getMime(matchPath) {
-    for (const [regex, type] of mime) {
+    for (const [regex, type] of mimeLut) {
         if (regex.test(matchPath)) {
             return type;
         }
@@ -553,7 +553,7 @@ function getMime(matchPath) {
 }
 
 function getCacheControl(matchPath) {
-    for (const [regex, value] of cacheControl) {
+    for (const [regex, value] of cacheControlLut) {
         if (regex.test(matchPath)) {
             return value;
         }
@@ -562,11 +562,11 @@ function getCacheControl(matchPath) {
 }
 
 function getMetadata(matchPath) {
-    const metadata = {};
-    for (const [regex, key, value] of metadata) {
+    const metadataValue = {};
+    for (const [regex, key, value] of metadataLut) {
         if (regex.test(matchPath)) {
-            metadata[key] = value;
+            metadataValue[key] = value;
         }
     }
-    return metadata;
+    return metadataValue;
 }
