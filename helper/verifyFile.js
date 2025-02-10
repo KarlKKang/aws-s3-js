@@ -24,6 +24,9 @@ export async function verifyFile(objectChecksum, localFilePath) {
             while (bytesRead > 0) {
                 hash.update(buffer.subarray(0, bytesRead));
                 partBytesRead += bytesRead;
+                if (part.size === partBytesRead) {
+                    break;
+                }
                 bytesRead = await read(fd, buffer, Math.min(CHUNK_SIZE, part.size - partBytesRead));
             }
             totalBytesRead += partBytesRead;
