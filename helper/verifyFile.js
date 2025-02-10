@@ -34,6 +34,7 @@ export async function verifyFile(objectChecksum, localFilePath) {
             }
             partChecksums.push(localResult);
         }
+        totalBytesRead += await read(fd, buffer, CHUNK_SIZE);
         close(fd);
         if (totalBytesRead !== objectChecksum.size) {
             return false;
