@@ -1,68 +1,53 @@
-import { HeadObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectAttributesCommand } from '@aws-sdk/client-s3';
 
 export async function getObjectChecksum(client, bucket, key) {
-    // This function does not use the faster `GetObjectAttributesCommand` API because currently there is a bug that causes internal server errors when the object key contains some special characters.
     let response = await client.send(
-        new HeadObjectCommand({
+        new GetObjectAttributesCommand({
             Bucket: bucket,
             Key: key,
-            ChecksumMode: 'ENABLED',
-            PartNumber: 1,
+            ObjectAttributes: ['ObjectParts', 'Checksum', 'ObjectSize'],
         })
     );
-    let parts = undefined;
-    const partsCount = response.PartsCount;
-    if (partsCount) {
-        parts = [
-            {
-                partNumber: 1,
-                size: response.ContentLength,
-                ...parseChecksumObject(response),
-            }
-        ];
-        const partsRequests = [];
-        for (let i = 2; i <= partsCount; i++) {
-            partsRequests.push(
-                client.send(
-                    new HeadObjectCommand({
-                        Bucket: bucket,
-                        Key: key,
-                        ChecksumMode: 'ENABLED',
-                        PartNumber: i,
-                    })
-                )
-            );
-        }
-        response = await client.send(
-            new HeadObjectCommand({
+    return {
+        size: response.ObjectSize,
+        checksum: {
+            ...parseChecksumObject(response.Checksum),
+        },
+        parts: await getPartChecksums(client, bucket, key, response.ObjectParts),
+    };
+}
+
+async function getPartChecksums(client, bucket, key, initialObjectParts) {
+    if (!initialObjectParts) {
+        return undefined;
+    }
+    const partChecksums = [];
+    for (const part of initialObjectParts.Parts) {
+        partChecksums.push({
+            partNumber: part.PartNumber,
+            size: part.Size,
+            ...parseChecksumObject(part)
+        });
+    }
+    let objectParts = initialObjectParts;
+    while (objectParts.IsTruncated) {
+        objectParts = await client.send(
+            new GetObjectAttributesCommand({
                 Bucket: bucket,
                 Key: key,
-                ChecksumMode: 'ENABLED',
+                ObjectAttributes: ['ObjectParts'],
+                PartNumberMarker: objectParts.NextPartNumberMarker,
             })
         );
-        const partsResponses = await Promise.all(partsRequests);
-        for (const partsResponse of partsResponses) {
-            parts.push({
-                partNumber: parts.length + 1,
-                size: partsResponse.ContentLength,
-                ...parseChecksumObject(partsResponse),
+        for (const part of objectParts.Parts) {
+            partChecksums.push({
+                partNumber: part.PartNumber,
+                size: part.Size,
+                ...parseChecksumObject(part)
             });
         }
     }
-    const checksumObject = parseChecksumObject(response);
-    for (const key in checksumObject) {
-        const endIndex = checksumObject[key].indexOf('-');
-        if (endIndex >= 0) {
-            checksumObject[key] = checksumObject[key].substring(0, endIndex);
-        }
-    }
-    return {
-        size: response.ContentLength,
-        checksum: {
-            ...checksumObject,
-        },
-        parts: parts,
-    };
+    return partChecksums;
 }
 
 function parseChecksumObject(obj) {
