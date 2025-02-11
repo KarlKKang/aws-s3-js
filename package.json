@@ -20,10 +20,10 @@
   },
   "homepage": "https://github.com/KarlKKang/aws-s3-js",
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.462.0"
+    "@aws-sdk/client-s3": "3.744.0"
   },
   "devDependencies": {
-    "@stylistic/eslint-plugin-js": "^1.4.1",
-    "eslint": "^8.54.0"
+    "@stylistic/eslint-plugin-js": "1.8.1",
+    "eslint": "8.57.1"
   }
 }
