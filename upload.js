@@ -37,6 +37,8 @@ function printHelp() {
     console.error('    Do not overwrite existing files. Optional regular expression can be used to specify files that should not be overwritten. If the regular expression is not specified, all files will not be overwritten. If the file name starts with --, it must be escaped to avoid being interpreted as an option.');
     console.error('--no-overwrite-exclude <REGEXP>');
     console.error('    Exclude files from previously matched ones from --no-overwrite.');
+    console.error('--ignore-mtime');
+    console.error('    Don\'t take the last modified time of the file into account when checking if the file is up to date. The remote file will be considered up to date if and only if it has the same size as the local file.');
     console.error('--dry-run');
     console.error('    Do not actually upload any files.');
     console.error();
@@ -66,6 +68,7 @@ let deleteRemote = false;
 let overwrite = true;
 let noOverwriteRegex = /.*/;
 let noOverwriteExclude = undefined;
+let ignoreMtime = false;
 let dryRun = false;
 for (let i = 5; i < process.argv.length; i++) {
     if (process.argv[i] === '--region') {
@@ -158,6 +161,8 @@ for (let i = 5; i < process.argv.length; i++) {
             process.exit(1);
         }
         noOverwriteExclude = new RegExp(noOverwriteExclude, 'iu');
+    } else if (process.argv[i] === '--ignore-mtime') {
+        ignoreMtime = true;
     } else if (process.argv[i] === '--dry-run') {
         dryRun = true;
     } else {
@@ -230,7 +235,7 @@ async function uploadDir() {
             if (remoteFile) {
                 delete remoteFiles[remotePath];
             }
-            if (remoteFile && remoteFile.size === localFile.size && remoteFile.mtime.getTime() >= localFile.mtime.getTime()) {
+            if (remoteFile && remoteFile.size === localFile.size && (ignoreMtime || remoteFile.mtime.getTime() >= localFile.mtime.getTime())) {
                 return false;
             }
             return [remotePath, localPath, relativePath, localFile.size];
@@ -361,7 +366,7 @@ async function uploadFile(remotePath, localPath, matchPath) {
         }
     }
     localFile = await localFile;
-    if (remoteFile && remoteFile.size === localFile.size && remoteFile.mtime.getTime() >= localFile.mtime.getTime()) {
+    if (remoteFile && remoteFile.size === localFile.size && (ignoreMtime || remoteFile.mtime.getTime() >= localFile.mtime.getTime())) {
         return 1;
     }
     if (remoteFile && !overwrite && noOverwriteRegex.test(matchPath) && (noOverwriteExclude === undefined || !noOverwriteExclude.test(matchPath))) {
