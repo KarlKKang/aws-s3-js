@@ -322,7 +322,15 @@ async function uploadDir() {
         for (let i = 0; i < requestCount; i++) {
             deleteWorkers.push((async () => {
                 const deleteResult = await requestWrapper(async () => {
-                    return await deleteObjects(client, bucket, deleteKeys.slice(i * 1000, (i + 1) * 1000));
+                    const workerDeleteKeys = deleteKeys.slice(i * 1000, (i + 1) * 1000);
+                    if (dryRun) {
+                        return {
+                            deletedKeys: workerDeleteKeys,
+                            failedKeys: [],
+                        };
+                    } else {
+                        return await deleteObjects(client, bucket, workerDeleteKeys);
+                    }
                 });
                 for (const deletedKey of deleteResult.deletedKeys) {
                     console.log('Deleted ' + deletedKey);
